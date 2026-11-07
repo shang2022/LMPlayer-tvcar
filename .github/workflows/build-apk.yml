@@ -15,6 +15,9 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
+      - name: 给gradlew加执行权限
+        run: chmod +x gradlew
+
       - name: 编译Debug APK
         run: ./gradlew assembleDebug
 
