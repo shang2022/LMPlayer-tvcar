@@ -47,7 +47,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * 柠檬音乐 TV 版 — 酷我 TV 风格「发现」主页 (Discover Home)
- * - 顶部：操作音源一键切换胶囊排（酷我 / 网易 / QQ / 酷狗 / 咪咕）+ 刷新按钮
+ * - 顶部：音源下拉选择按钮 + 刷新按钮
  * - 上半部 Bento 推荐大卡矩阵：
  *   1. 「今日为你推荐 · 新歌速递」大卡（展示封面、主打新歌、一键畅听与展开列表）
  *   2. 「私人漫游 · 随心听」暖色渐变大卡（一键随机漫游播放）
@@ -101,6 +101,9 @@ fun LemonDiscoverHomeScreen(
     var newAlbums by remember { mutableStateOf<List<UnifiedAlbum>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var reloadTrigger by remember { mutableStateOf(0) }
+
+    // ========== 新增：下拉菜单展开状态 ==========
+    var sourceDropdownExpanded by remember { mutableStateOf(false) }
 
     // 缓存下载音质与目标选择弹窗 & 批量下载多选状态
     var songForDownloadChoice by remember { mutableStateOf<UnifiedSong?>(null) }
@@ -261,7 +264,7 @@ fun LemonDiscoverHomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // ==================== 1. 顶部音源快捷切换条 ====================
+                // ==================== 1. 顶部音源快捷切换条（改为下拉按钮） ====================
                 item(key = "discover_source_bar") {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -278,30 +281,49 @@ fun LemonDiscoverHomeScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            OnlineMusicSource.entries.forEach { src ->
-                                val selected = src == currentSource
+
+                            // ========== 替换成下拉触发按钮 ==========
+                            Box {
                                 Surface(
                                     shape = RoundedCornerShape(14.dp),
-                                    color = if (selected) goldColor.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.06f),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (selected) goldColor else Color.White.copy(alpha = 0.12f)
-                                    ),
+                                    color = goldColor.copy(alpha = 0.22f),
+                                    border = BorderStroke(1.dp, goldColor),
                                     modifier = Modifier.tvFocusable(
                                         shape = RoundedCornerShape(14.dp),
                                         focusedScale = 1.06f,
                                         focusedBorderColor = goldColor,
-                                        onClick = { onSourceChange(src) }
+                                        onClick = { sourceDropdownExpanded = true }
                                     )
                                 ) {
-                                    Text(
-                                        text = src.shortName,
-                                        fontSize = dimensions.captionSize,
-                                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-                                        color = if (selected) goldColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = currentSource.shortName,
+                                            fontSize = dimensions.captionSize,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = goldColor
+                                        )
+                                        Icon(
+                                            Icons.Default.ArrowDropDown,
+                                            contentDescription = "展开音源列表",
+                                            tint = goldColor,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
+
+                                OnlineSourceDropdownMenu(
+                                    expanded = sourceDropdownExpanded,
+                                    onDismissRequest = { sourceDropdownExpanded = false },
+                                    currentSource = currentSource,
+                                    onSourceSelect = { src ->
+                                        sourceDropdownExpanded = false
+                                        onSourceChange(src)
+                                    }
+                                )
                             }
                         }
 
@@ -1233,149 +1255,3 @@ private fun DiscoverPlaylistCard(
             AlbumArtworkImage(
                 model = playlist.coverUrl,
                 seedId = playlist.id,
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 16.dp
-            )
-            // 右下角播放圆钮角标
-            Surface(
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.62f),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(7.dp))
-        Text(
-            text = playlist.name,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            style = TextStyle(
-                fontSize = dimensions.bodySize,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                lineHeight = (dimensions.bodySize.value * 1.25f).sp
-            )
-        )
-    }
-}
-
-@Composable
-private fun DiscoverToplistCard(
-    toplist: LemonToplist,
-    onClick: () -> Unit,
-    focusKey: String? = null
-) {
-    val dimensions = LocalAppDimensions.current
-    Column(
-        modifier = Modifier
-            .width(dimensions.scale(152.dp))
-            .tvFocusable(
-                shape = RoundedCornerShape(16.dp),
-                focusedScale = 1.05f,
-                focusedBorderColor = Color(0xFFFFC947),
-                focusKey = focusKey,
-                onClick = onClick
-            )
-            .padding(4.dp)
-    ) {
-        Box(modifier = Modifier.size(dimensions.scale(144.dp))) {
-            AlbumArtworkImage(
-                model = toplist.coverUrl,
-                seedId = toplist.id,
-                modifier = Modifier.fillMaxSize(),
-                cornerRadius = 16.dp
-            )
-            if (toplist.updateFrequency.isNotBlank()) {
-                Surface(
-                    shape = RoundedCornerShape(bottomStart = 10.dp, topEnd = 16.dp),
-                    color = Color.Black.copy(alpha = 0.65f),
-                    modifier = Modifier.align(Alignment.TopEnd)
-                ) {
-                    Text(
-                        text = toplist.updateFrequency,
-                        color = Color.White,
-                        fontSize = dimensions.badgeSize,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                }
-            }
-            Surface(
-                shape = CircleShape,
-                color = Color.Black.copy(alpha = 0.62f),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(7.dp))
-        Text(
-            text = toplist.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = TextStyle(
-                fontSize = dimensions.bodySize,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        )
-    }
-}
-
-/**
- * 仿音频输出与共享展出方式的在线音源平台切换下拉菜单
- */
-@Composable
-fun OnlineSourceDropdownMenu(
-    expanded: Boolean,
-    onDismissRequest: () -> Unit,
-    currentSource: OnlineMusicSource,
-    onSourceSelect: (OnlineMusicSource) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val dimensions = LocalAppDimensions.current
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismissRequest,
-        modifier = modifier.widthIn(min = 250.dp, max = 310.dp)
-    ) {
-        OnlineMusicSource.entries.forEach { src ->
-            val isSelected = src == currentSource
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = src.displayName,
-                        fontSize = dimensions.bodySize,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) AppleRed else MaterialTheme.colorScheme.onSurface
-                    )
-                },
-                onClick = { onSourceSelect(src) },
-                modifier = Modifier
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                    .tvButtonFocusable(shape = RoundedCornerShape(10.dp))
-            )
-        }
-    }
-}
