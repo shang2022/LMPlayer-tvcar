@@ -10,10 +10,10 @@ jobs:
       - name: 拉取源码
         uses: actions/checkout@v4
 
-      - name: 配置JDK11
+      - name: 配置JDK17
         uses: actions/setup-java@v4
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'temurin'
 
       - name: 给gradlew加执行权限
