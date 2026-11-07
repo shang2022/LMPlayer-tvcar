@@ -2,6 +2,7 @@ name: 自动编译柠檬音乐APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,11 +18,6 @@ jobs:
 
       - name: 给gradlew加执行权限
         run: chmod +x gradlew
-
-      - name: 替换gradle为阿里云镜像
-        run: |
-          sed -i 's/mavenCentral()/maven { url "https:\/\/maven.aliyun.com\/repository\/public" }/g' build.gradle
-          sed -i 's/google()/maven { url "https:\/\/maven.aliyun.com\/repository\/google" }/g' build.gradle
 
       - name: 编译Debug APK
         run: ./gradlew assembleDebug
